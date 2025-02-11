@@ -1,78 +1,98 @@
-import 'package:flutter/material.dart';  // Importa el paquete de Flutter para usar componentes visuales.
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';  // Importa el paquete para interactuar con Bluetooth.
-import 'package:permission_handler/permission_handler.dart';  // Importa el paquete que gestiona los permisos.
-import 'package:logger/logger.dart';  // Importa el paquete logger para gestionar logs (mensajes de depuración).
+import 'package:flutter/material.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:logger/logger.dart';
 
 void main() {
-  runApp(MyApp());  // Ejecuta la aplicación Flutter e inicia el widget `MyApp`.
+  runApp(MyApp());
 }
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
-  MyAppState createState() => MyAppState();  // Crea y asocia el estado del widget con la clase `MyAppState`.
+  MyAppState createState() => MyAppState();
 }
 
 class MyAppState extends State<MyApp> {
-  List<BluetoothDevice> devices = [];  // Lista que almacenará los dispositivos Bluetooth encontrados.
-  final Logger _logger = Logger();  // Crea una instancia del logger para registrar mensajes de depuración.
+  List<BluetoothDevice> devices = [];
+  final Logger _logger = Logger();
+  BluetoothConnection? connection;
+
+  // 🔥 GlobalKey para el ScaffoldMessenger
+  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   @override
   void initState() {
     super.initState();
-    // Al iniciar el widget, se solicita primero el permiso para acceder a Bluetooth.
-    _requestBluetoothPermissions();  
+    _requestBluetoothPermissions();
   }
 
-  // Función para solicitar los permisos necesarios
   Future<void> _requestBluetoothPermissions() async {
-    // Solicita permisos para conectar y escanear dispositivos Bluetooth
     PermissionStatus bluetoothPermission = await Permission.bluetoothConnect.request();
     PermissionStatus locationPermission = await Permission.location.request();
     PermissionStatus bluetoothScanPermission = await Permission.bluetoothScan.request();
 
-    // Verifica si todos los permisos han sido concedidos
     if (bluetoothPermission.isGranted && locationPermission.isGranted && bluetoothScanPermission.isGranted) {
-      _logger.i("Todos los permisos concedidos");  // Logea el mensaje si los permisos fueron concedidos
-      // Inicia el escaneo de dispositivos solo si los permisos fueron concedidos
+      _logger.i("Todos los permisos concedidos");
       _scanDevices();
     } else {
-      _logger.w("Permisos necesarios no concedidos");  // Logea una advertencia si los permisos no fueron concedidos
+      _logger.w("Permisos necesarios no concedidos");
     }
   }
 
-  // Función para escanear dispositivos Bluetooth
   void _scanDevices() async {
-    List<BluetoothDevice> discoveredDevices = [];  // Lista donde se guardarán los dispositivos encontrados.
+    List<BluetoothDevice> discoveredDevices = [];
     FlutterBluetoothSerial.instance.startDiscovery().listen((r) {
       setState(() {
-        // Si el dispositivo no está ya en la lista, lo agrega
         if (!discoveredDevices.contains(r.device)) {
-          discoveredDevices.add(r.device);  
+          discoveredDevices.add(r.device);
         }
       });
     });
 
-    // Actualiza el estado de la UI con los dispositivos descubiertos.
     setState(() {
       devices = discoveredDevices;
     });
   }
 
+  void _connectToDevice(BluetoothDevice device) async {
+    try {
+      _logger.i("Intentando conectar con ${device.name ?? 'Dispositivo desconocido'}...");
+      connection = await BluetoothConnection.toAddress(device.address);
+
+      if (connection != null && connection!.isConnected) {
+        _logger.i("Conectado a ${device.name ?? 'Dispositivo desconocido'}");
+
+        if (!mounted) return;
+
+        // 🔥 Usamos scaffoldMessengerKey en lugar de ScaffoldMessenger.of(context)
+        scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: Text("Conectado a ${device.name ?? 'Dispositivo desconocido'}"),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      _logger.e("Error al conectar con ${device.name ?? 'Dispositivo desconocido'}: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      scaffoldMessengerKey: scaffoldMessengerKey, // 🔥 Asociamos el GlobalKey aquí
       home: Scaffold(
-        appBar: AppBar(title: Text("Bluetooth con ESP32")),  // Crea la barra superior con el título.
+        appBar: AppBar(title: Text("Bluetooth con ESP32")),
         body: ListView.builder(
-          itemCount: devices.length,  // El número de elementos será el número de dispositivos encontrados.
+          itemCount: devices.length,
           itemBuilder: (context, index) {
             return ListTile(
-              title: Text(devices[index].name ?? "Dispositivo desconocido"),  // Muestra el nombre del dispositivo o un mensaje por defecto.
-              subtitle: Text(devices[index].address),  // Muestra la dirección del dispositivo.
+              title: Text(devices[index].name ?? "Dispositivo desconocido"),
+              subtitle: Text(devices[index].address),
               onTap: () {
-                // Aquí conectaríamos con el dispositivo Bluetooth seleccionado.
+                _connectToDevice(devices[index]);
               },
             );
           },
