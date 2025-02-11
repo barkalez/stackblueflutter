@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:logger/logger.dart';
+import 'dart:typed_data';
 
 void main() {
   runApp(MyApp());
@@ -21,6 +22,9 @@ class MyAppState extends State<MyApp> {
 
   // 🔥 GlobalKey para el ScaffoldMessenger
   final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  // 🔥 GlobalKey para el Navigator
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -64,13 +68,26 @@ class MyAppState extends State<MyApp> {
       if (connection != null && connection!.isConnected) {
         _logger.i("Conectado a ${device.name ?? 'Dispositivo desconocido'}");
 
+        // Verificar si el widget sigue montado antes de usar el contexto
         if (!mounted) return;
 
-        // 🔥 Usamos scaffoldMessengerKey en lugar de ScaffoldMessenger.of(context)
         scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
             content: Text("Conectado a ${device.name ?? 'Dispositivo desconocido'}"),
             duration: Duration(seconds: 3),
+          ),
+        );
+
+        // Esperar un frame antes de navegar
+        await Future.delayed(Duration(milliseconds: 500));
+
+        // Verificar nuevamente si el widget sigue montado antes de navegar
+        if (!mounted) return;
+
+        // Usar el GlobalKey para navegar
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (context) => ControlScreen(connection: connection!),
           ),
         );
       }
@@ -83,6 +100,7 @@ class MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       scaffoldMessengerKey: scaffoldMessengerKey, // 🔥 Asociamos el GlobalKey aquí
+      navigatorKey: navigatorKey, // 🔥 Asociamos el GlobalKey del Navigator
       home: Scaffold(
         appBar: AppBar(title: Text("Bluetooth con ESP32")),
         body: ListView.builder(
@@ -96,6 +114,87 @@ class MyAppState extends State<MyApp> {
               },
             );
           },
+        ),
+      ),
+    );
+  }
+}
+
+// 🔥 Nueva pantalla con TextField y botón Enviar
+class ControlScreen extends StatefulWidget {
+  final BluetoothConnection connection;
+
+  const ControlScreen({super.key, required this.connection});
+
+  @override
+  ControlScreenState createState() => ControlScreenState();
+}
+
+class ControlScreenState extends State<ControlScreen> {
+  final TextEditingController _controller = TextEditingController();
+
+  Future<void> _sendData() async {
+  if (widget.connection.isConnected) {
+    String message = _controller.text.trim();
+    if (message.isNotEmpty) {
+      // Agregar un salto de línea al final del mensaje (si es necesario)
+      message += '\n';
+
+      // Convertir el mensaje a Uint8List
+      Uint8List data = Uint8List.fromList(message.codeUnits);
+
+      // Enviar los datos
+      widget.connection.output.add(data);
+
+      // Esperar a que los datos se envíen completamente
+      await widget.connection.output.allSent;
+
+      // Limpiar el campo de texto después de enviar
+      _controller.clear();
+
+      // Verificar si el widget sigue montado antes de mostrar el SnackBar
+      if (!mounted) return;
+
+      // Mostrar un mensaje de éxito (opcional)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Mensaje enviado: $message"),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  } else {
+    // Mostrar un mensaje de error si la conexión no está activa
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Error: No estás conectado al dispositivo"),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("Control del Motor")),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _controller,
+              decoration: InputDecoration(labelText: "Escribe un mensaje"),
+            ),
+            SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _sendData,
+              child: Text("Enviar"),
+            ),
+          ],
         ),
       ),
     );
