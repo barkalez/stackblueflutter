@@ -41,17 +41,44 @@ class BluetoothManager {
   static Future<bool> connectToDevice(String address) async {
     try {
       _logger.i('Connecting to device: $address');
-      // Proporciona los argumentos correctos al método connect.
+
+
       // UUID estándar para Bluetooth serial
       const String uuid = "00001101-0000-1000-8000-00805f9b34fb";
 
       // Llamar con argumentos correctos (address y uuid)
-      await _bluetooth.connect(address, uuid); 
+      await _bluetooth.connect(address, uuid);
+
+
+
+
+
+
+
+
+
+
       _logger.i('Connected to device: $address');
       return true;
     } catch (e) {
       _logger.e('Error connecting to device: $e');
       return false;
     }
+  }
+
+  static Future<bool> sendDataToDevice(String data) async {
+    try {
+      _logger.i('Sending data: $data');
+      await _bluetooth.write(data);
+      _logger.i('Data sent: $data');
+      return true;
+    } catch (e) {
+      _logger.e('Error sending data: $e');
+      return false;
+    }
+  }
+
+  static Stream<String> onDataReceived() {
+    return _bluetooth.onDeviceDataReceived().map((data) => String.fromCharCodes(data));
   }
 }
