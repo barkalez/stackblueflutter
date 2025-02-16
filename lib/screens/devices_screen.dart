@@ -48,10 +48,12 @@ class DevicesScreenState extends State<DevicesScreen> {
   Future<void> _scanForDevices() async {
     // Llama al método scanForDevices de BluetoothManager y almacena los dispositivos encontrados.
     List<BluetoothDevice> devices = await BluetoothManager.scanForDevices();
+    // Filtrar dispositivos por nombre "StackBlue"
+    List<BluetoothDevice> filteredDevices = devices.where((device) => device.name == 'StackBlue').toList();
     // Actualiza el estado con la lista de dispositivos encontrados.
     if (mounted) {
       setState(() {
-        _devices = devices;
+        _devices = filteredDevices;
       });
     }
   }
