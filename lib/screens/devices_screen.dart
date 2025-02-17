@@ -23,6 +23,7 @@ class DevicesScreen extends StatefulWidget {
 class DevicesScreenState extends State<DevicesScreen> {
   // Lista para almacenar los dispositivos Bluetooth encontrados.
   List<BluetoothDevice> _devices = [];
+  String _appBarTitle = 'Buscando StackBlue';
 
   // Método initState que se llama cuando se inicializa el estado.
   @override
@@ -54,6 +55,9 @@ class DevicesScreenState extends State<DevicesScreen> {
     if (mounted) {
       setState(() {
         _devices = filteredDevices;
+        if (_devices.isNotEmpty) {
+          _appBarTitle = 'StackBlue encontrado';
+        }
       });
     }
   }
@@ -88,7 +92,8 @@ class DevicesScreenState extends State<DevicesScreen> {
     return Scaffold(
       // Barra de la aplicación con el título.
       appBar: AppBar(
-        title: const Text('Bluetooth Devices'),
+        title: Text(_appBarTitle),
+        centerTitle: true,
       ),
       // Cuerpo de la pantalla que muestra un indicador de progreso o la lista de dispositivos.
       body: _devices.isEmpty
@@ -98,13 +103,34 @@ class DevicesScreenState extends State<DevicesScreen> {
               itemCount: _devices.length,
               // Construye cada elemento de la lista.
               itemBuilder: (context, index) {
-                return ListTile(
-                  // Muestra el nombre del dispositivo.
-                  title: Text(_devices[index].name),
-                  // Muestra la dirección del dispositivo.
-                  subtitle: Text(_devices[index].address),
-                  // Conecta al dispositivo cuando se toca el elemento de la lista.
-                  onTap: () => _connectToDevice(_devices[index]),
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: SizedBox(
+                      width: 200, // Ancho fijo para los botones
+                      child: ElevatedButton(
+                        onPressed: () => _connectToDevice(_devices[index]),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.lightBlueAccent, // Color del botón
+                          foregroundColor: Colors.white, // Color del texto del botón
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), // Padding del botón
+                          textStyle: const TextStyle(
+                            fontSize: 18, // Tamaño del texto
+                            fontWeight: FontWeight.bold, // Peso del texto
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8), // Bordes redondeados
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(_devices[index].name),
+                            Text(_devices[index].address, style: const TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
