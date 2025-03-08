@@ -1,18 +1,27 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
+import 'package:stackblue/config/app_theme.dart';
+import 'package:stackblue/navigation/routes.dart';
 
 void main() {
-  runApp(const MainApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const StackBlueApp());
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+/// Aplicación principal de StackBlue para control de macrofotografía.
+///
+/// Punto de entrada que configura el tema y las rutas de navegación.
+class StackBlueApp extends StatelessWidget {
+  const StackBlueApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: HomeScreen(),
+      title: 'StackBlue',
+      theme: AppTheme.lightTheme,
+      initialRoute: AppRoutes.home,
+      routes: AppRoutes.routes,
     );
   }
 }

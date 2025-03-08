@@ -1,25 +1,41 @@
+// lib/widgets/custom_appbar.dart
 import 'package:flutter/material.dart';
 
+/// Una barra de aplicaciones personalizada con título centrado y estilo consistente.
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
+  final Widget? leading;
+  final List<Widget>? actions;
 
-  const CustomAppBar({required this.title, super.key});
+  const CustomAppBar({
+    super.key,
+    required this.title,
+    this.leading,
+    this.actions,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final appBarTheme = theme.appBarTheme;
+
     return AppBar(
-      automaticallyImplyLeading: false, // Quita la flecha de back
+      automaticallyImplyLeading: false,
+      leading: leading,
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
+        style: appBarTheme.titleTextStyle ??
+            const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
       ),
       centerTitle: true,
-      backgroundColor: Colors.blue,
-      elevation: 4,
-      shadowColor: const Color.fromRGBO(0, 0, 0, 0.5),
+      backgroundColor: appBarTheme.backgroundColor ?? Colors.blue,
+      elevation: appBarTheme.elevation ?? 4,
+      shadowColor: appBarTheme.shadowColor ?? Colors.black54, // Corregido
+      actions: actions,
     );
   }
 

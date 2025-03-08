@@ -1,85 +1,98 @@
+// lib/screens/control_screen.dart
 import 'package:flutter/material.dart';
-import 'package:bluetooth_classic/bluetooth_classic.dart';
+import 'package:logger/logger.dart';
 import '../widgets/custom_appbar.dart';
 import '../widgets/custom_button.dart';
-import 'package:logger/logger.dart';
+import '../bluetooth/bluetooth_service.dart';
 
+/// Pantalla de control para enviar comandos al dispositivo StackBlue.
+///
+/// Permite enviar comandos G28 y un movimiento personalizado al ESP32 conectado.
 class ControlScreen extends StatefulWidget {
-  final BluetoothClassic bluetoothPlugin;
+  final BluetoothService bluetoothService;
   final String deviceAddress;
 
   const ControlScreen({
     super.key,
-    required this.bluetoothPlugin,
+    required this.bluetoothService,
     required this.deviceAddress,
   });
 
   @override
-  ControlScreenState createState() => ControlScreenState();
+  State<ControlScreen> createState() => _ControlScreenState();
 }
 
-class ControlScreenState extends State<ControlScreen> {
-  final Logger _logger = Logger();
+class _ControlScreenState extends State<ControlScreen> {
+  static final Logger _logger = Logger();
+  bool _isSendingCommand = false;
 
-  // Comando G28
+  static const int _stepsPerRevolution = 3200;
+  static const Map<String, int> _speeds = {
+    'initial': 3200,
+    'second': 2400,
+    'third': 1600,
+    'fourth': 800,
+  };
+
   Future<void> _sendG28Command() async {
+    setState(() => _isSendingCommand = true);
     try {
-      await widget.bluetoothPlugin.write("G28\n");
+      await widget.bluetoothService.sendCommand("G28\n");
       _logger.i('Comando "G28" enviado a StackBlue');
-    } catch (e) {
-      _logger.e('Error al enviar comando "G28": $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al enviar comando: $e')),
+          const SnackBar(content: Text("Homing iniciado")),
         );
+      }
+    } catch (e) {
+      _handleError('Error al enviar comando "G28": $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingCommand = false);
       }
     }
   }
 
-  // Nuevo comando para el movimiento personalizado
   Future<void> _sendCustomMovementCommand() async {
+    setState(() => _isSendingCommand = true);
     try {
-      // 3200 pulsos = 1 vuelta (microstepping x16)
-
-      // Velocidades decrecientes (en pasos por segundo)
-      const int initialSpeed = 3200; // 1 rev/s
-      const int speed2 = 2400;       // 0.75 rev/s
-      const int speed3 = 1600;       // 0.5 rev/s
-      const int speed4 = 800;        // 0.25 rev/s
-
-      // Secuencia de comandos G1
-      // 3 vueltas en un sentido (9600 pasos)
-      await widget.bluetoothPlugin.write("G1 X9600 F$initialSpeed\n");
-      _logger.i('Enviado: 3 vueltas adelante a $initialSpeed pasos/s');
-      await Future.delayed(Duration(milliseconds: 3000)); // Espera aproximada
-
-      // 2 vueltas en sentido contrario (9600 - 6400 = 3200 pasos)
-      await widget.bluetoothPlugin.write("G1 X3200 F$speed2\n");
-      _logger.i('Enviado: 2 vueltas atrás a $speed2 pasos/s');
-      await Future.delayed(Duration(milliseconds: 2700));
-
-      // 1 vuelta cambiando sentido (3200 + 3200 = 6400 pasos)
-      await widget.bluetoothPlugin.write("G1 X6400 F$speed3\n");
-      _logger.i('Enviado: 1 vuelta adelante a $speed3 pasos/s');
-      await Future.delayed(Duration(milliseconds: 2000));
-
-      // Media vuelta cambiando sentido (6400 - 1600 = 4800 pasos)
-      await widget.bluetoothPlugin.write("G1 X4800 F$speed4\n");
-      _logger.i('Enviado: 0.5 vueltas atrás a $speed4 pasos/s');
-      await Future.delayed(Duration(milliseconds: 1000));
-
+      await widget.bluetoothService.sendCommand(
+        "G1 X${3 * _stepsPerRevolution} F${_speeds['initial']}\n",
+      );
+      _logger.i('3 vueltas adelante a ${_speeds['initial']} pasos/s');
+      await widget.bluetoothService.sendCommand(
+        "G1 X${1 * _stepsPerRevolution} F${_speeds['second']}\n",
+      );
+      _logger.i('2 vueltas atrás a ${_speeds['second']} pasos/s');
+      await widget.bluetoothService.sendCommand(
+        "G1 X${2 * _stepsPerRevolution} F${_speeds['third']}\n",
+      );
+      _logger.i('1 vuelta adelante a ${_speeds['third']} pasos/s');
+      await widget.bluetoothService.sendCommand(
+        "G1 X${1.5 * _stepsPerRevolution} F${_speeds['fourth']}\n",
+      );
+      _logger.i('0.5 vueltas atrás a ${_speeds['fourth']} pasos/s');
     } catch (e) {
-      _logger.e('Error al enviar comandos de movimiento personalizado: $e');
+      _handleError('Error al enviar comandos de movimiento personalizado: $e');
+    } finally {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al enviar comandos: $e')),
-        );
+        setState(() => _isSendingCommand = false);
       }
+    }
+  }
+
+  void _handleError(String message) {
+    _logger.e(message);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     }
   }
 
   @override
   void dispose() {
+    widget.bluetoothService.disconnect(); // Desconectar al salir
     super.dispose();
   }
 
@@ -87,22 +100,31 @@ class ControlScreenState extends State<ControlScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Control Screen'),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CustomButton(
-              text: 'Send G28 Command',
-              color: Colors.green,
-              onPressed: _sendG28Command,
-            ),
-            const SizedBox(height: 20), // Espacio entre botones
-            CustomButton(
-              text: 'Custom Movement',
-              color: Colors.blue,
-              onPressed: _sendCustomMovementCommand,
-            ),
-          ],
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CustomButton(
+                text: 'Send G28 Command',
+                color: Colors.green,
+                onPressed: _isSendingCommand ? () {} : _sendG28Command,
+                enabled: !_isSendingCommand,
+              ),
+              const SizedBox(height: 20),
+              CustomButton(
+                text: 'Custom Movement',
+                color: Colors.blue,
+                onPressed: _isSendingCommand ? () {} : _sendCustomMovementCommand,
+                enabled: !_isSendingCommand,
+              ),
+              if (_isSendingCommand) ...[
+                const SizedBox(height: 20),
+                const CircularProgressIndicator(),
+              ],
+            ],
+          ),
         ),
       ),
     );
