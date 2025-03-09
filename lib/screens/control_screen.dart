@@ -26,8 +26,8 @@ class _ControlScreenState extends State<ControlScreen> {
   StreamSubscription<String>? _positionSubscription;
   String _buffer = ''; // Buffer para acumular datos hasta recibir \n
 
-  static const int _stepsPerRevolution = 3200; // Ajustado a tu valor real
-  static const double _maxSteps = 40000.0; // Ajustado a tu límite máximo
+  static const int _stepsPerRevolution = 3200; // 3200 pasos por revolución
+  static const double _maxSteps = 40000.0; // Límite máximo de 40000 pasos
 
   @override
   void initState() {
@@ -40,12 +40,11 @@ class _ControlScreenState extends State<ControlScreen> {
     _positionSubscription = widget.bluetoothService.receiveData().listen(
       (data) {
         _logger.i('Datos crudos recibidos: "$data"');
-        _buffer += data; // Acumular datos en el buffer
+        _buffer += data;
 
-        // Procesar solo cuando se recibe una línea completa (\n)
         if (_buffer.contains('\n')) {
           List<String> lines = _buffer.split('\n');
-          _buffer = lines.last; // Guardar fragmento incompleto (si lo hay)
+          _buffer = lines.last;
           for (var line in lines.sublist(0, lines.length - 1)) {
             line = line.trim();
             if (line.isEmpty) continue;
@@ -83,12 +82,8 @@ class _ControlScreenState extends State<ControlScreen> {
           }
         }
       },
-      onError: (e) {
-        _logger.e('Error al recibir posición: $e');
-      },
-      onDone: () {
-        _logger.i('Stream de datos cerrado');
-      },
+      onError: (e) => _logger.e('Error al recibir posición: $e'),
+      onDone: () => _logger.i('Stream de datos cerrado'),
     );
   }
 
@@ -114,10 +109,10 @@ class _ControlScreenState extends State<ControlScreen> {
   Future<void> _sendOneRevolutionForward() async {
     setState(() => _isSendingCommand = true);
     try {
-      await widget.bluetoothService.sendCommand(
-        "G1 X$_stepsPerRevolution F1000\n",
-      );
-      _logger.i('1 revolución adelante (3200 pasos) a 1000 pasos/s');
+      double newPosition = (_currentPosition + _stepsPerRevolution).clamp(0, _maxSteps);
+      final command = "G1 X${newPosition.round()} F1000\n";
+      await widget.bluetoothService.sendCommand(command);
+      _logger.i('1 revolución adelante: $command');
     } catch (e) {
       _handleError('Error al enviar comando de 1 revolución adelante: $e');
     } finally {
@@ -130,12 +125,27 @@ class _ControlScreenState extends State<ControlScreen> {
   Future<void> _sendOneRevolutionBackward() async {
     setState(() => _isSendingCommand = true);
     try {
-      await widget.bluetoothService.sendCommand(
-        "G1 X-$_stepsPerRevolution F1000\n",
-      );
-      _logger.i('1 revolución atrás (-3200 pasos) a 1000 pasos/s');
+      double newPosition = (_currentPosition - _stepsPerRevolution).clamp(0, _maxSteps);
+      final command = "G1 X${newPosition.round()} F1000\n";
+      await widget.bluetoothService.sendCommand(command);
+      _logger.i('1 revolución atrás: $command');
     } catch (e) {
       _handleError('Error al enviar comando de 1 revolución atrás: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingCommand = false);
+      }
+    }
+  }
+
+  Future<void> _sendSliderPosition(double position) async {
+    setState(() => _isSendingCommand = true);
+    try {
+      final command = "G1 X${position.round()} F1000\n";
+      await widget.bluetoothService.sendCommand(command);
+      _logger.i('Enviado comando desde slider: $command');
+    } catch (e) {
+      _handleError('Error al enviar posición del slider: $e');
     } finally {
       if (mounted) {
         setState(() => _isSendingCommand = false);
@@ -199,9 +209,20 @@ class _ControlScreenState extends State<ControlScreen> {
                 value: _currentPosition,
                 min: 0,
                 max: _maxSteps,
-                divisions: 40000, // Ajustado al máximo de pasos
+                divisions: 40000,
                 label: _currentPosition.toStringAsFixed(0),
-                onChanged: null, // Solo lectura
+                onChanged: (value) {
+                  if (mounted && !_isSendingCommand) {
+                    setState(() {
+                      _currentPosition = value;
+                    });
+                  }
+                },
+                onChangeEnd: (value) {
+                  if (!_isSendingCommand) {
+                    _sendSliderPosition(value);
+                  }
+                },
               ),
               if (_isSendingCommand) ...[
                 const SizedBox(height: 20),
