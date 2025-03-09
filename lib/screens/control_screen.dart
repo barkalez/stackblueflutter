@@ -1,13 +1,10 @@
-// lib/screens/control_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import '../widgets/custom_appbar.dart';
 import '../widgets/custom_button.dart';
 import '../bluetooth/bluetooth_service.dart';
 
-/// Pantalla de control para enviar comandos al dispositivo StackBlue.
-///
-/// Permite enviar comandos G28 y un movimiento personalizado al ESP32 conectado.
 class ControlScreen extends StatefulWidget {
   final BluetoothService bluetoothService;
   final String deviceAddress;
@@ -25,16 +22,77 @@ class ControlScreen extends StatefulWidget {
 class _ControlScreenState extends State<ControlScreen> {
   static final Logger _logger = Logger();
   bool _isSendingCommand = false;
+  double _currentPosition = 0.0;
+  StreamSubscription<String>? _positionSubscription;
+  String _buffer = ''; // Buffer para acumular datos hasta recibir \n
 
-  static const int _stepsPerRevolution = 3200;
-  static const Map<String, int> _speeds = {
-    'initial': 3200,
-    'second': 2400,
-    'third': 1600,
-    'fourth': 800,
-  };
+  static const int _stepsPerRevolution = 3200; // Ajustado a tu valor real
+  static const double _maxSteps = 40000.0; // Ajustado a tu límite máximo
 
-  Future<void> _sendG28Command() async {
+  @override
+  void initState() {
+    super.initState();
+    _startListeningToPosition();
+  }
+
+  void _startListeningToPosition() {
+    _logger.i('Iniciando escucha de posición');
+    _positionSubscription = widget.bluetoothService.receiveData().listen(
+      (data) {
+        _logger.i('Datos crudos recibidos: "$data"');
+        _buffer += data; // Acumular datos en el buffer
+
+        // Procesar solo cuando se recibe una línea completa (\n)
+        if (_buffer.contains('\n')) {
+          List<String> lines = _buffer.split('\n');
+          _buffer = lines.last; // Guardar fragmento incompleto (si lo hay)
+          for (var line in lines.sublist(0, lines.length - 1)) {
+            line = line.trim();
+            if (line.isEmpty) continue;
+
+            _logger.i('Línea procesada: "$line"');
+            if (line.startsWith("POS:")) {
+              final positionStr = line.replaceFirst("POS:", "").trim();
+              _logger.i('Posición extraída: "$positionStr"');
+              final position = double.tryParse(positionStr) ?? _currentPosition;
+              if (mounted) {
+                setState(() {
+                  _currentPosition = position.clamp(0, _maxSteps);
+                  _logger.i('Posición actualizada: $_currentPosition');
+                });
+              }
+            } else if (line == "pos0") {
+              if (mounted) {
+                setState(() {
+                  _currentPosition = 0;
+                  _logger.i('Homing recibido, posición reiniciada a 0');
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Homing completado")),
+                );
+              }
+            } else if (line == "END") {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Fin de trayecto alcanzado")),
+                );
+              }
+            } else {
+              _logger.w('Datos no reconocidos: "$line"');
+            }
+          }
+        }
+      },
+      onError: (e) {
+        _logger.e('Error al recibir posición: $e');
+      },
+      onDone: () {
+        _logger.i('Stream de datos cerrado');
+      },
+    );
+  }
+
+  Future<void> _sendHomingCommand() async {
     setState(() => _isSendingCommand = true);
     try {
       await widget.bluetoothService.sendCommand("G28\n");
@@ -53,27 +111,31 @@ class _ControlScreenState extends State<ControlScreen> {
     }
   }
 
-  Future<void> _sendCustomMovementCommand() async {
+  Future<void> _sendOneRevolutionForward() async {
     setState(() => _isSendingCommand = true);
     try {
       await widget.bluetoothService.sendCommand(
-        "G1 X${3 * _stepsPerRevolution} F${_speeds['initial']}\n",
+        "G1 X$_stepsPerRevolution F1000\n",
       );
-      _logger.i('3 vueltas adelante a ${_speeds['initial']} pasos/s');
-      await widget.bluetoothService.sendCommand(
-        "G1 X${1 * _stepsPerRevolution} F${_speeds['second']}\n",
-      );
-      _logger.i('2 vueltas atrás a ${_speeds['second']} pasos/s');
-      await widget.bluetoothService.sendCommand(
-        "G1 X${2 * _stepsPerRevolution} F${_speeds['third']}\n",
-      );
-      _logger.i('1 vuelta adelante a ${_speeds['third']} pasos/s');
-      await widget.bluetoothService.sendCommand(
-        "G1 X${1.5 * _stepsPerRevolution} F${_speeds['fourth']}\n",
-      );
-      _logger.i('0.5 vueltas atrás a ${_speeds['fourth']} pasos/s');
+      _logger.i('1 revolución adelante (3200 pasos) a 1000 pasos/s');
     } catch (e) {
-      _handleError('Error al enviar comandos de movimiento personalizado: $e');
+      _handleError('Error al enviar comando de 1 revolución adelante: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isSendingCommand = false);
+      }
+    }
+  }
+
+  Future<void> _sendOneRevolutionBackward() async {
+    setState(() => _isSendingCommand = true);
+    try {
+      await widget.bluetoothService.sendCommand(
+        "G1 X-$_stepsPerRevolution F1000\n",
+      );
+      _logger.i('1 revolución atrás (-3200 pasos) a 1000 pasos/s');
+    } catch (e) {
+      _handleError('Error al enviar comando de 1 revolución atrás: $e');
     } finally {
       if (mounted) {
         setState(() => _isSendingCommand = false);
@@ -92,7 +154,8 @@ class _ControlScreenState extends State<ControlScreen> {
 
   @override
   void dispose() {
-    widget.bluetoothService.disconnect(); // Desconectar al salir
+    _positionSubscription?.cancel();
+    widget.bluetoothService.disconnect();
     super.dispose();
   }
 
@@ -107,17 +170,38 @@ class _ControlScreenState extends State<ControlScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CustomButton(
-                text: 'Send G28 Command',
+                text: 'Homing',
                 color: Colors.green,
-                onPressed: _isSendingCommand ? () {} : _sendG28Command,
+                onPressed: _isSendingCommand ? () {} : _sendHomingCommand,
                 enabled: !_isSendingCommand,
               ),
               const SizedBox(height: 20),
               CustomButton(
-                text: 'Custom Movement',
+                text: '1 revolución +',
                 color: Colors.blue,
-                onPressed: _isSendingCommand ? () {} : _sendCustomMovementCommand,
+                onPressed: _isSendingCommand ? () {} : _sendOneRevolutionForward,
                 enabled: !_isSendingCommand,
+              ),
+              const SizedBox(height: 20),
+              CustomButton(
+                text: '1 revolución -',
+                color: Colors.red,
+                onPressed: _isSendingCommand ? () {} : _sendOneRevolutionBackward,
+                enabled: !_isSendingCommand,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Posición: ${_currentPosition.toStringAsFixed(0)} pasos',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              Slider(
+                value: _currentPosition,
+                min: 0,
+                max: _maxSteps,
+                divisions: 40000, // Ajustado al máximo de pasos
+                label: _currentPosition.toStringAsFixed(0),
+                onChanged: null, // Solo lectura
               ),
               if (_isSendingCommand) ...[
                 const SizedBox(height: 20),

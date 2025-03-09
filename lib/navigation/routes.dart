@@ -5,7 +5,6 @@ import '../screens/devices_screen.dart';
 import '../screens/control_screen.dart';
 import '../bluetooth/bluetooth_service.dart';
 
-/// Rutas nombradas de la aplicación StackBlue.
 class AppRoutes {
   AppRoutes._();
 
@@ -13,7 +12,6 @@ class AppRoutes {
   static const String devices = '/devices';
   static const String control = '/control';
 
-  /// Mapa de rutas para MaterialApp.
   static final Map<String, WidgetBuilder> routes = {
     home: (context) => const HomeScreen(),
     devices: (context) => const DevicesScreen(),

@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import '../widgets/custom_appbar.dart';
-import '../widgets/custom_button.dart'; // Añadido para el botón de reintento
+import '../widgets/custom_button.dart';
 import '../bluetooth/bluetooth_device.dart';
 import '../bluetooth/bluetooth_service.dart';
 import '../navigation/routes.dart';
@@ -33,16 +33,15 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
   /// Inicia el escaneo de dispositivos Bluetooth usando el servicio.
   Future<void> _startScan() async {
-    if (_isScanning) return; // Evitar múltiples escaneos simultáneos
+    if (_isScanning) return;
     setState(() {
       _isScanning = true;
-      _discoveredDevices.clear(); // Limpiar lista al reintentar
+      _discoveredDevices.clear();
       _appBarTitle = 'Buscando a StackBlue';
     });
 
     try {
-      final stream = _bluetoothService.scanDevices();
-      final subscription = stream.listen((device) {
+      await _bluetoothService.scanDevices().listen((device) {
         if (device.name?.contains("StackBlue") ?? false) {
           if (!_discoveredDevices.contains(device)) {
             setState(() {
@@ -51,11 +50,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
             });
           }
         }
-      });
-
-      // Esperar 10 segundos y luego cancelar el escaneo
+      }).asFuture();
       await Future.delayed(const Duration(seconds: 10));
-      subscription.cancel();
     } catch (e) {
       _logger.e('Error al iniciar escaneo: $e');
       if (mounted) {
@@ -71,7 +67,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
   /// Conecta a un dispositivo Bluetooth y navega a la pantalla de control.
   Future<void> _connectToDevice(BluetoothDevice device) async {
     try {
-      setState(() => _isScanning = true); // Mostrar indicador mientras conecta
+      setState(() => _isScanning = true);
       await _bluetoothService.connect(device.address);
       _logger.i('Conectado a ${device.name}');
       if (mounted) {
@@ -100,7 +96,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
   @override
   void dispose() {
-    _bluetoothService.disconnect(); // Asegurar desconexión al salir
+    _bluetoothService.disconnect();
     super.dispose();
   }
 
