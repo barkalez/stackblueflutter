@@ -1,6 +1,8 @@
 // lib/screens/devices_screen.dart
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as serial; // Añadimos esto
 import '../bluetooth/bluetooth_device.dart';
 import '../bluetooth/bluetooth_service.dart';
 import '../navigation/routes.dart';
@@ -24,14 +26,35 @@ class _DevicesScreenState extends State<DevicesScreen> {
   @override
   void initState() {
     super.initState();
-    _startScan();
+    _requestPermissionsAndScan();
+  }
+
+  Future<void> _requestPermissionsAndScan() async {
+    Map<Permission, PermissionStatus> statuses = await [
+      Permission.bluetoothScan,
+      Permission.bluetoothConnect,
+      Permission.location,
+    ].request();
+
+    if (statuses[Permission.bluetoothScan]!.isGranted &&
+        statuses[Permission.bluetoothConnect]!.isGranted &&
+        (statuses[Permission.location]!.isGranted || await Permission.location.isPermanentlyDenied)) {
+      _startScan();
+    } else {
+      _logger.e('Permisos Bluetooth denegados');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Se requieren permisos Bluetooth para escanear dispositivos')),
+        );
+      }
+    }
   }
 
   Future<void> _startScan() async {
     setState(() => isScanning = true);
     try {
       await for (var device in widget.bluetoothService.scanDevices()) {
-        if (device.name == "StackBlue") { // Filtramos por "StackBlue"
+        if (device.name == "StackBlue") {
           if (mounted) {
             setState(() {
               devices.add(device);
@@ -58,6 +81,20 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
   Future<void> _connectToDevice(String address) async {
     try {
+      // Verificamos si el dispositivo está emparejado
+      List<serial.BluetoothDevice> bondedDevices = await serial.FlutterBluetoothSerial.instance.getBondedDevices();
+      bool isBonded = bondedDevices.any((device) => device.address == address);
+      
+      if (!isBonded) {
+        _logger.w('El dispositivo $address no está emparejado');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Por favor, empareja "StackBlue" en la configuración Bluetooth')),
+          );
+        }
+        return;
+      }
+
       await widget.bluetoothService.connect(address);
       if (mounted) {
         Navigator.pushNamed(

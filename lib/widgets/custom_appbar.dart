@@ -23,21 +23,32 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: bluetoothService.isConnected
-                  ? Colors.green // Verde si está conectado
-                  : Colors.red.withValues(alpha: 0.5), // Rojo tenue si está desconectado
+                  ? Colors.green
+                  : Colors.red.withValues(alpha: 0.5),
             ),
             child: IconButton(
               icon: const Icon(Icons.bluetooth, color: Colors.white),
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      bluetoothService.isConnected
-                          ? 'Bluetooth conectado'
-                          : 'Bluetooth desconectado',
-                    ),
-                  ),
-                );
+              onPressed: () async {
+                if (bluetoothService.isConnected) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Bluetooth ya está conectado')),
+                  );
+                } else {
+                  try {
+                    await bluetoothService.reconnect();
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Reconectado a StackBlue')),
+                      );
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error al reconectar: $e')),
+                      );
+                    }
+                  }
+                }
               },
             ),
           ),

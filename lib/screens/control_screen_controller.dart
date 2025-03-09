@@ -24,6 +24,7 @@ class ControlScreenController extends ChangeNotifier {
 
   void _startListeningToPosition() {
     _logger.i('Iniciando escucha de posición');
+    _positionSubscription?.cancel(); // Cancelamos cualquier suscripción previa
     _positionSubscription = bluetoothService.receiveData().listen(
       (data) {
         _logger.i('Datos crudos recibidos: "$data"');
@@ -41,9 +42,9 @@ class ControlScreenController extends ChangeNotifier {
               final positionStr = line.replaceFirst("POS:", "").trim();
               _logger.i('Posición extraída: "$positionStr"');
               final position = double.tryParse(positionStr) ?? _currentPosition;
-              updatePosition(position); // Cambiado de _updatePosition a updatePosition
+              updatePosition(position);
             } else if (line == "pos0") {
-              updatePosition(0); // Cambiado de _updatePosition a updatePosition
+              updatePosition(0);
               _logger.i('Homing recibido, posición reiniciada a 0');
             } else if (line == "END") {
               _logger.i('Fin de trayecto alcanzado');
@@ -58,7 +59,7 @@ class ControlScreenController extends ChangeNotifier {
     );
   }
 
-  void updatePosition(double position) { // Ahora es público
+  void updatePosition(double position) {
     _currentPosition = position.clamp(0, maxSteps);
     _logger.i('Posición actualizada: $_currentPosition');
     notifyListeners();
