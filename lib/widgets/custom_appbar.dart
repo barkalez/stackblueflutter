@@ -1,6 +1,7 @@
 // lib/widgets/custom_appbar.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../bluetooth/bluetooth_service.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -13,7 +14,35 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final bluetoothService = Provider.of<BluetoothService>(context);
 
     return AppBar(
-      title: Text(title),
+      title: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+          letterSpacing: 0.5,
+        ),
+      ),
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.blue.shade800,
+              Colors.blue.shade400,
+            ],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2), // Línea 38 corregida
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+      ),
+      elevation: 4,
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 16.0),
@@ -23,11 +52,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: bluetoothService.isConnected
-                  ? Colors.green
-                  : Colors.red.withValues(alpha: 0.5),
+                  ? Colors.green.shade600
+                  : Colors.red.shade400.withValues(alpha: 0.7),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3), // Línea 59 corregida
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: IconButton(
-              icon: const Icon(Icons.bluetooth, color: Colors.white),
+              icon: const Icon(
+                Icons.bluetooth,
+                color: Colors.white,
+                size: 20,
+              ),
               onPressed: () async {
                 if (bluetoothService.isConnected) {
                   ScaffoldMessenger.of(context).showSnackBar(

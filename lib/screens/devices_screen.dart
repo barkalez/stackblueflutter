@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as serial; // Añadimos esto
+import 'package:provider/provider.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as serial;
 import '../bluetooth/bluetooth_device.dart';
 import '../bluetooth/bluetooth_service.dart';
 import '../navigation/routes.dart';
@@ -10,9 +11,7 @@ import '../widgets/custom_appbar.dart';
 import '../widgets/custom_button.dart';
 
 class DevicesScreen extends StatefulWidget {
-  final BluetoothService bluetoothService;
-
-  const DevicesScreen({super.key, required this.bluetoothService});
+  const DevicesScreen({super.key}); // Eliminamos bluetoothService como parámetro
 
   @override
   State<DevicesScreen> createState() => _DevicesScreenState();
@@ -51,9 +50,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   Future<void> _startScan() async {
+    final bluetoothService = Provider.of<BluetoothService>(context, listen: false); // Obtenemos del Provider
     setState(() => isScanning = true);
     try {
-      await for (var device in widget.bluetoothService.scanDevices()) {
+      await for (var device in bluetoothService.scanDevices()) {
         if (device.name == "StackBlue") {
           if (mounted) {
             setState(() {
@@ -80,11 +80,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   Future<void> _connectToDevice(String address) async {
+    final bluetoothService = Provider.of<BluetoothService>(context, listen: false); // Obtenemos del Provider
     try {
-      // Verificamos si el dispositivo está emparejado
       List<serial.BluetoothDevice> bondedDevices = await serial.FlutterBluetoothSerial.instance.getBondedDevices();
       bool isBonded = bondedDevices.any((device) => device.address == address);
-      
+
       if (!isBonded) {
         _logger.w('El dispositivo $address no está emparejado');
         if (mounted) {
@@ -95,14 +95,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
         return;
       }
 
-      await widget.bluetoothService.connect(address);
+      await bluetoothService.connect(address);
       if (mounted) {
         Navigator.pushNamed(
           context,
-          Routes.control,
+          Routes.profileCreation,
           arguments: {
-            'bluetoothService': widget.bluetoothService,
-            'deviceAddress': address,
+            'deviceAddress': address, // Solo pasamos deviceAddress
           },
         );
       }

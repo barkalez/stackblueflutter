@@ -10,17 +10,20 @@ class BluetoothService extends ChangeNotifier {
   serial.BluetoothConnection? _connection;
   final Logger _logger = Logger();
   StreamController<String>? _dataController;
-  String? _lastConnectedAddress; // Almacenamos la última dirección conectada
+  String? _lastConnectedAddress;
+  double _currentPosition = 0.0;
 
   bool get isConnected => _connection != null && _connection!.isConnected;
   String? get lastConnectedAddress => _lastConnectedAddress;
+  double get currentPosition => _currentPosition;
 
   BluetoothService() {
     _monitorConnection();
   }
 
   void _monitorConnection() {
-    if (_connection != null) {
+    if (_connection != null && _connection!.isConnected) {
+      _logger.i('Monitoreando conexión Bluetooth');
       _dataController?.close();
       _dataController = StreamController<String>.broadcast();
 
@@ -29,9 +32,10 @@ class BluetoothService extends ChangeNotifier {
           final received = String.fromCharCodes(data);
           _logger.i('Datos recibidos: $received');
           _dataController?.add(received);
+          _updatePositionFromData(received);
         },
         onDone: () {
-          _logger.i('Conexión Bluetooth cerrada');
+          _logger.i('Stream de entrada cerrado (onDone) - Conexión Bluetooth terminada');
           _connection = null;
           _dataController?.close();
           notifyListeners();
@@ -43,7 +47,33 @@ class BluetoothService extends ChangeNotifier {
           notifyListeners();
         },
       );
+    } else {
+      _logger.w('No hay conexión activa para monitorear');
     }
+  }
+
+  void _updatePositionFromData(String data) {
+    if (data.contains("POS:")) {
+      final lines = data.split('\n');
+      for (var line in lines) {
+        line = line.trim();
+        if (line.startsWith("POS:")) {
+          final positionStr = line.replaceFirst("POS:", "").trim();
+          final position = double.tryParse(positionStr);
+          if (position != null) {
+            _currentPosition = position.clamp(0, 40000.0);
+            _logger.i('Posición actualizada desde Bluetooth: $_currentPosition');
+            notifyListeners();
+          }
+        }
+      }
+    }
+  }
+
+  void updatePosition(double position) { // Nuevo método público
+    _currentPosition = position.clamp(0, 40000.0);
+    _logger.i('Posición actualizada manualmente: $_currentPosition');
+    notifyListeners();
   }
 
   Stream<BluetoothDevice> scanDevices() async* {
@@ -66,7 +96,7 @@ class BluetoothService extends ChangeNotifier {
   Future<void> connect(String address) async {
     try {
       _connection = await serial.BluetoothConnection.toAddress(address);
-      _lastConnectedAddress = address; // Guardamos la dirección
+      _lastConnectedAddress = address;
       _logger.i('Conectado a $address');
       _monitorConnection();
       notifyListeners();
@@ -85,7 +115,7 @@ class BluetoothService extends ChangeNotifier {
       _logger.w('No hay dirección previa para reconectar');
       throw Exception('No hay dispositivo previo para reconectar');
     }
-    await connect(_lastConnectedAddress!); // Intentamos reconectar
+    await connect(_lastConnectedAddress!);
   }
 
   Future<void> sendCommand(String command) async {
@@ -113,7 +143,7 @@ class BluetoothService extends ChangeNotifier {
     try {
       if (_connection != null && _connection!.isConnected) {
         await _connection!.close();
-        _logger.i('Desconectado');
+        _logger.i('Desconectado manualmente');
         _connection = null;
         _dataController?.close();
         notifyListeners();
@@ -122,12 +152,5 @@ class BluetoothService extends ChangeNotifier {
       _logger.e('Error al desconectar: $e');
       rethrow;
     }
-  }
-
-  @override
-  void dispose() {
-    _dataController?.close();
-    disconnect();
-    super.dispose();
   }
 }
