@@ -27,9 +27,22 @@ class _StackScreenState extends State<StackScreen> {
     _stepsPerTurnController = TextEditingController(text: selectedProfile?.stepsPerTurn.toString() ?? '');
     _distancePerTurnController = TextEditingController(text: selectedProfile?.distancePerTurn.toString() ?? '');
     _screwSensitivityController = TextEditingController(text: selectedProfile?.screwSensitivity.toString() ?? '');
+    
+    // Los controladores de posición se inicializarán con los valores del Provider en didChangeDependencies
     _initialPositionController = TextEditingController();
     _finalPositionController = TextEditingController();
     _photoCountController = TextEditingController();
+  }
+  
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Obtener el servicio después de que se haya inicializado el contexto
+    final bluetoothService = Provider.of<BluetoothService>(context, listen: false);
+    
+    // Actualizar los controladores con los valores del servicio
+    _initialPositionController.text = bluetoothService.stackStartPosition.toStringAsFixed(0);
+    _finalPositionController.text = bluetoothService.stackEndPosition.toStringAsFixed(0);
   }
 
   @override
@@ -43,37 +56,15 @@ class _StackScreenState extends State<StackScreen> {
     super.dispose();
   }
 
-  Widget _buildDefineButton(BuildContext context) {
-    Provider.of<BluetoothService>(context); // Obtenemos del Provider
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.pushNamed(
-            context,
-            Routes.controlManualScreen,
-          ); // No necesitamos pasar bluetoothService
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.teal.shade600,
-          foregroundColor: Colors.white,
-          minimumSize: const Size(60, 30),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
-        ),
-        child: const Text(
-          'Definir',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
+  // Método para navegar a control manual y definir la posición
+  void _navigateToControlManual(bool isInitialPosition) {
+    Navigator.pushNamed(context, Routes.controlManualScreen);
   }
 
   @override
   Widget build(BuildContext context) {
+    final bluetoothService = Provider.of<BluetoothService>(context);
+    
     return Scaffold(
       appBar: const CustomAppBar(title: 'Crear Apilado'),
       body: Padding(
@@ -100,22 +91,68 @@ class _StackScreenState extends State<StackScreen> {
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16),
+              // Campo de posición inicial
               TextField(
                 controller: _initialPositionController,
                 decoration: InputDecoration(
                   labelText: 'Posición inicial',
-                  suffixIcon: _buildDefineButton(context),
+                  suffixIcon: Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ElevatedButton(
+                      onPressed: () => _navigateToControlManual(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal.shade600,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(60, 30),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Definir', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
                 ),
                 keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  // Actualizar el valor en el servicio cuando se edita manualmente
+                  if (value.isNotEmpty) {
+                    bluetoothService.setStackStartPosition(double.tryParse(value) ?? 0);
+                  }
+                },
               ),
+              
               const SizedBox(height: 16),
+              
+              // Campo de posición final
               TextField(
                 controller: _finalPositionController,
                 decoration: InputDecoration(
                   labelText: 'Posición final',
-                  suffixIcon: _buildDefineButton(context),
+                  suffixIcon: Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ElevatedButton(
+                      onPressed: () => _navigateToControlManual(false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal.shade600,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(60, 30),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Definir', style: TextStyle(fontSize: 12)),
+                    ),
+                  ),
                 ),
                 keyboardType: TextInputType.number,
+                onChanged: (value) {
+                  // Actualizar el valor en el servicio cuando se edita manualmente
+                  if (value.isNotEmpty) {
+                    bluetoothService.setStackEndPosition(double.tryParse(value) ?? 0);
+                  }
+                },
               ),
               const SizedBox(height: 16),
               TextField(

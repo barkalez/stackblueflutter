@@ -1,6 +1,7 @@
 // lib/screens/control_manual_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stackblue/navigation/routes.dart';
 import '../bluetooth/bluetooth_service.dart';
 import '../widgets/custom_appbar.dart';
 import 'control_screen_controller.dart';
@@ -33,14 +34,25 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
   Future<void> _sendSliderPosition(ControlScreenController controller, double value) async {
     try {
       await controller.sendSliderPosition(value);
+      // Modificamos el SnackBar para que sea flotante y no empuje el contenido
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Posición enviada')),
+        SnackBar(
+          content: const Text('Posición enviada'),
+          behavior: SnackBarBehavior.floating, // Hace que flote sobre el contenido
+          width: 200, // Ancho más reducido
+          duration: const Duration(milliseconds: 800), // Más corto
+          margin: const EdgeInsets.only(bottom: 70, left: 30, right: 30), // Mejor posicionamiento
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(
+          content: Text('Error: $e'),
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 70, left: 30, right: 30),
+        ),
       );
     }
   }
@@ -68,7 +80,11 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
                 } catch (e) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.only(bottom: 70, left: 30, right: 30),
+                    ),
                   );
                 }
               },
@@ -78,7 +94,11 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error al detener: $e')),
+                  SnackBar(
+                    content: Text('Error al detener: $e'),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.only(bottom: 70, left: 30, right: 30),
+                  ),
                 );
               }
             },
@@ -134,18 +154,18 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
                     ],
                   ),
                   
-                  // BOTÓN - ESTABLECER INICIO DE APILADO (REPOSICIONADO)
+                  // BOTÓN - ESTABLECER INICIO DE APILADO
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: CustomButton(
                       text: 'Establecer inicio de apilado',
                       onPressed: () {
                         final currentPos = bluetoothService.currentPosition;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Inicio de apilado establecido en la posición ${currentPos.toStringAsFixed(0)}'),
-                          ),
-                        );
+                        // Guardar la posición de inicio en el servicio
+                        bluetoothService.setStackStartPosition(currentPos);
+                        
+                        // Navegar directamente a la pantalla de stack
+                        Navigator.pushNamed(context, Routes.stackScreen);
                       },
                       enabled: !controller.isSendingCommand,
                     ),
@@ -179,18 +199,18 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
                     ],
                   ),
                   
-                  // BOTÓN - ESTABLECER FINAL DE APILADO (REPOSICIONADO)
+                  // BOTÓN - ESTABLECER FINAL DE APILADO
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: CustomButton(
                       text: 'Establecer final de apilado',
                       onPressed: () {
                         final currentPos = bluetoothService.currentPosition;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Final de apilado establecido en la posición ${currentPos.toStringAsFixed(0)}'),
-                          ),
-                        );
+                        // Guardar la posición final en el servicio
+                        bluetoothService.setStackEndPosition(currentPos);
+                        
+                        // Navegar directamente a la pantalla de stack
+                        Navigator.pushNamed(context, Routes.stackScreen);
                       },
                       enabled: !controller.isSendingCommand,
                     ),
@@ -247,7 +267,11 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
                 } catch (e) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e')),
+                    SnackBar(
+                      content: Text('Error: $e'),
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.only(bottom: 70, left: 30, right: 30),
+                    ),
                   );
                 }
               },
@@ -257,7 +281,11 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
               } catch (e) {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error al detener: $e')),
+                  SnackBar(
+                    content: Text('Error al detener: $e'),
+                    behavior: SnackBarBehavior.floating,
+                    margin: const EdgeInsets.only(bottom: 70, left: 30, right: 30),
+                  ),
                 );
               }
             },
@@ -278,10 +306,6 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
               ),
             ),
           ),
-          if (controller.isSendingCommand) ...[
-            const SizedBox(height: 20),
-            const CircularProgressIndicator(),
-          ],
         ],
       ),
     );

@@ -13,6 +13,25 @@ class BluetoothService extends ChangeNotifier {
   String? _lastConnectedAddress;
   double _currentPosition = 0.0;
 
+  // Añadir variables para posiciones de apilado
+  double _stackStartPosition = 0;
+  double _stackEndPosition = 0;
+
+  // Getters para posiciones de apilado
+  double get stackStartPosition => _stackStartPosition;
+  double get stackEndPosition => _stackEndPosition;
+
+  // Métodos para definir posiciones de apilado
+  void setStackStartPosition(double position) {
+    _stackStartPosition = position;
+    notifyListeners();
+  }
+
+  void setStackEndPosition(double position) {
+    _stackEndPosition = position;
+    notifyListeners();
+  }
+
   bool get isConnected => _connection != null && _connection!.isConnected;
   String? get lastConnectedAddress => _lastConnectedAddress;
   double get currentPosition => _currentPosition;
