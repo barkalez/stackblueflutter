@@ -109,7 +109,7 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
                 text: 'AVANZAR',
                 onPressed: () {
                   final newPosition = bluetoothService.currentPosition + 100;
-                  if (newPosition <= ControlScreenController.maxSteps) {
+                  if (newPosition <= controller.maxSteps) { // Usar la instancia
                     controller.updatePosition(newPosition);
                     _sendSliderPosition(controller, newPosition);
                   }
@@ -233,7 +233,7 @@ class ControlManualScreenViewState extends State<ControlManualScreenView> {
                         child: Slider(
                           value: bluetoothService.currentPosition,
                           min: 0,
-                          max: ControlScreenController.maxSteps,
+                          max: controller.maxSteps, // Usar la instancia
                           divisions: 40000,
                           label: bluetoothService.currentPosition.toStringAsFixed(0),
                           onChanged: (value) {

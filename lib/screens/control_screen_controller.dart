@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:stackblue/models/profile.dart';
 import '../bluetooth/bluetooth_service.dart';
 
 class ControlScreenController extends ChangeNotifier {
@@ -11,7 +12,7 @@ class ControlScreenController extends ChangeNotifier {
   bool _isSendingCommand = false;
 
   static const int stepsPerRevolution = 3200;
-  static const double maxSteps = 40000.0;
+  late double maxSteps;
 
   // Valores de velocidad disponibles
   static const List<int> availableSpeeds = [100, 200, 400, 800, 1600, 3200];
@@ -56,6 +57,12 @@ class ControlScreenController extends ChangeNotifier {
   }
 
   ControlScreenController(this.bluetoothService) {
+    // Obtener el perfil activo y establecer maxSteps
+    Profile? activeProfile = bluetoothService.selectedProfile;
+    
+    // Si hay un perfil activo, usar su totalDistance, de lo contrario usar valor por defecto
+    maxSteps = activeProfile?.totalDistance ?? 40000;
+    
     _startListeningToPosition();
   }
 

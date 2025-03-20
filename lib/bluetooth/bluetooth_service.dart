@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as serial;
 import 'package:logger/logger.dart';
+import 'package:stackblue/models/profile.dart';
 import 'bluetooth_device.dart';
 
 class BluetoothService extends ChangeNotifier {
@@ -35,6 +36,15 @@ class BluetoothService extends ChangeNotifier {
   bool get isConnected => _connection != null && _connection!.isConnected;
   String? get lastConnectedAddress => _lastConnectedAddress;
   double get currentPosition => _currentPosition;
+
+  Profile? _selectedProfile;
+
+  Profile? get selectedProfile => _selectedProfile;
+
+  void setSelectedProfile(Profile profile) {
+    _selectedProfile = profile;
+    notifyListeners();
+  }
 
   BluetoothService() {
     _monitorConnection();

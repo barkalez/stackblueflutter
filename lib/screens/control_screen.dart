@@ -81,7 +81,7 @@ class ControlScreenViewState extends State<ControlScreenView> {
           Slider(
             value: bluetoothService.currentPosition, // Usamos posición global
             min: 0,
-            max: ControlScreenController.maxSteps,
+            max: controller.maxSteps,
             divisions: 40000,
             label: bluetoothService.currentPosition.toStringAsFixed(0),
             onChanged: (value) {

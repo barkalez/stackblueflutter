@@ -19,15 +19,34 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
   final _stepsPerTurnController = TextEditingController();
   final _distancePerTurnController = TextEditingController();
   final _screwSensitivityController = TextEditingController();
+  final _totalDistanceController = TextEditingController(); // Nuevo controlador
+
+  @override
+  void initState() {
+    super.initState();
+    // No inicializar con valores predeterminados para que aparezcan vacíos
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _stepsPerTurnController.dispose();
+    _distancePerTurnController.dispose();
+    _screwSensitivityController.dispose();
+    _totalDistanceController.dispose(); // Liberar recursos
+    super.dispose();
+  }
 
   Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
       final prefs = await SharedPreferences.getInstance();
       final newProfile = Profile(
+        id: DateTime.now().millisecondsSinceEpoch.toString(), // Añadimos un ID único
         name: _nameController.text,
-        stepsPerTurn: int.parse(_stepsPerTurnController.text),
+        stepsPerTurn: double.parse(_stepsPerTurnController.text), // Cambiado a double.parse si tu modelo espera un double
         distancePerTurn: double.parse(_distancePerTurnController.text),
         screwSensitivity: double.parse(_screwSensitivityController.text),
+        totalDistance: double.parse(_totalDistanceController.text), // Obtener valor
       );
 
       // Obtenemos la lista existente o creamos una nueva
@@ -46,15 +65,6 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
         Navigator.pop(context);
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _stepsPerTurnController.dispose();
-    _distancePerTurnController.dispose();
-    _screwSensitivityController.dispose();
-    super.dispose();
   }
 
   @override
@@ -89,7 +99,7 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
                 _buildTextField(
                   controller: _stepsPerTurnController,
                   label: 'Pasos por vuelta',
-                  hint: 'Ej: 3200',
+                  hint: 'Ej: 200 o 3200 según microstepping',
                   keyboardType: TextInputType.number,
                   validator: (value) =>
                       value!.isEmpty || int.tryParse(value) == null
@@ -113,6 +123,17 @@ class _ProfileFormScreenState extends State<ProfileFormScreen> {
                   label: 'Sensibilidad tornillo',
                   hint: 'Ej: 1.5',
                   keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) =>
+                      value!.isEmpty || double.tryParse(value) == null
+                          ? 'Ingresa un número válido'
+                          : null,
+                ),
+                const SizedBox(height: 20),
+                _buildTextField(
+                  controller: _totalDistanceController,
+                  label: 'Recorrido total (mm)',
+                  hint: 'Ej: 40000',
+                  keyboardType: TextInputType.number,
                   validator: (value) =>
                       value!.isEmpty || double.tryParse(value) == null
                           ? 'Ingresa un número válido'

@@ -97,6 +97,15 @@ class _ProfileListScreenState extends State<ProfileListScreen> {
                           color: Colors.teal,
                         ),
                       ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Pasos/vuelta: ${profile.stepsPerTurn}'),
+                          Text('Distancia/vuelta: ${profile.distancePerTurn} mm'),
+                          Text('Sensibilidad: ${profile.screwSensitivity} mm'),
+                          Text('Recorrido total: ${profile.totalDistance} mm'), // Nueva línea
+                        ],
+                      ),
                       trailing: IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () => _deleteProfile(index),
