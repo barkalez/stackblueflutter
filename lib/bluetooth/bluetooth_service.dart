@@ -107,9 +107,9 @@ class BluetoothService extends ChangeNotifier {
 
   Stream<BluetoothDevice> scanDevices() async* {
     try {
-      List<serial.BluetoothDiscoveryResult> results =
-          await serial.FlutterBluetoothSerial.instance.startDiscovery().toList();
-      for (var result in results) {
+      // Iniciamos el descubrimiento y emitimos dispositivos a medida que se encuentran
+      final discoveryStream = serial.FlutterBluetoothSerial.instance.startDiscovery();
+      await for (var result in discoveryStream) {
         _logger.i('Dispositivo encontrado: ${result.device.name} - ${result.device.address}');
         yield BluetoothDevice(
           name: result.device.name,

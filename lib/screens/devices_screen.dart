@@ -1,4 +1,6 @@
 // lib/screens/devices_screen.dart
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -53,27 +55,56 @@ class _DevicesScreenState extends State<DevicesScreen> {
     final bluetoothService = Provider.of<BluetoothService>(context, listen: false); // Obtenemos del Provider
     setState(() => isScanning = true);
     try {
-      await for (var device in bluetoothService.scanDevices()) {
-        if (device.name == "StackBlue") {
-          if (mounted) {
-            setState(() {
-              devices.add(device);
-              _logger.i('Dispositivo StackBlue encontrado: ${device.name} - ${device.address}');
-            });
+      late final StreamSubscription<BluetoothDevice> discoverySubscription;
+      discoverySubscription = bluetoothService.scanDevices().listen(
+        (device) {
+          _logger.i('Dispositivo encontrado durante el escaneo: ${device.name} - ${device.address}');
+          if (device.name == "StackBlue") {
+            if (mounted) {
+              setState(() {
+                // Verificar que no esté duplicado
+                if (!devices.any((d) => d.address == device.address)) {
+                  devices.add(device);
+                  _logger.i('Dispositivo StackBlue añadido a la lista: ${device.name} - ${device.address}');
+                }
+              });
+              // Detener el escaneo una vez encontrado StackBlue
+              discoverySubscription.cancel();
+              setState(() => isScanning = false);
+            }
+          } else {
+            _logger.i('Dispositivo ignorado: ${device.name} - ${device.address}');
           }
-        } else {
-          _logger.i('Dispositivo ignorado: ${device.name} - ${device.address}');
+        },
+        onError: (e) {
+          _logger.e('Error durante el escaneo: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Error al escanear: $e')),
+            );
+            setState(() => isScanning = false);
+          }
+        },
+        onDone: () {
+          if (mounted) {
+            setState(() => isScanning = false);
+          }
+        },
+      );
+
+      // Por seguridad, detener el escaneo después de 12 segundos si no se ha encontrado StackBlue
+      Future.delayed(const Duration(seconds: 12), () {
+        discoverySubscription.cancel();
+        if (mounted) {
+          setState(() => isScanning = false);
         }
-      }
+      });
     } catch (e) {
       _logger.e('Error al escanear: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al escanear: $e')),
         );
-      }
-    } finally {
-      if (mounted) {
         setState(() => isScanning = false);
       }
     }
