@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../bluetooth/bluetooth_service.dart';
+import 'package:stackblue/bluetooth/bluetooth_service.dart';
+import 'package:stackblue/utils/message_utils.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -70,22 +71,27 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
               onPressed: () async {
                 if (bluetoothService.isConnected) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Bluetooth ya está conectado')),
-                  );
-                } else {
                   try {
-                    await bluetoothService.reconnect();
+                    // Desconectar si está conectado
+                    await bluetoothService.disconnect();
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Reconectado a StackBlue')),
-                      );
+                      MessageUtils.showInfoMessage(context, 'Desconectado de StackBlue');
                     }
                   } catch (e) {
                     if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al reconectar: $e')),
-                      );
+                      MessageUtils.showErrorMessage(context, 'Error al desconectar: $e');
+                    }
+                  }
+                } else {
+                  try {
+                    // Intentar reconectar si está desconectado
+                    await bluetoothService.reconnect();
+                    if (context.mounted) {
+                      MessageUtils.showSuccessMessage(context, 'Reconectado a StackBlue');
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      MessageUtils.showErrorMessage(context, 'Error al reconectar: $e');
                     }
                   }
                 }

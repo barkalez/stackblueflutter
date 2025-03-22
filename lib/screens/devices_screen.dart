@@ -9,6 +9,7 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as seria
 import '../bluetooth/bluetooth_device.dart';
 import '../bluetooth/bluetooth_service.dart';
 import '../navigation/routes.dart';
+import '../utils/message_utils.dart';
 import '../widgets/custom_appbar.dart';
 import '../widgets/custom_button.dart';
 
@@ -44,8 +45,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
     } else {
       _logger.e('Permisos Bluetooth denegados');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Se requieren permisos Bluetooth para escanear dispositivos')),
+        MessageUtils.showErrorMessage(
+          context,
+          'Se requieren permisos Bluetooth para escanear dispositivos'
         );
       }
     }
@@ -79,8 +81,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
         onError: (e) {
           _logger.e('Error durante el escaneo: $e');
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error al escanear: $e')),
+            MessageUtils.showErrorMessage(
+              context,
+              'Error al escanear: $e'
             );
             setState(() => isScanning = false);
           }
@@ -102,8 +105,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
     } catch (e) {
       _logger.e('Error al escanear: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al escanear: $e')),
+        MessageUtils.showErrorMessage(
+          context,
+          'Error al escanear: $e'
         );
         setState(() => isScanning = false);
       }
@@ -119,15 +123,29 @@ class _DevicesScreenState extends State<DevicesScreen> {
       if (!isBonded) {
         _logger.w('El dispositivo $address no está emparejado');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Por favor, empareja "StackBlue" en la configuración Bluetooth')),
+          MessageUtils.showInfoMessage(
+            context,
+            'Por favor, empareja "StackBlue" en la configuración Bluetooth'
           );
         }
         return;
       }
+      
+      // Mostrar un indicador de progreso mientras se conecta
+      if (mounted) {
+        MessageUtils.showProgressDialog(
+          context,
+          'Conectando al dispositivo...',
+          dismissible: false
+        );
+      }
 
       await bluetoothService.connect(address);
+      
+      // Cerrar el diálogo de progreso
       if (mounted) {
+        Navigator.of(context).pop(); // Cerrar diálogo
+        
         Navigator.pushNamed(
           context,
           Routes.profileCreation,
@@ -139,8 +157,14 @@ class _DevicesScreenState extends State<DevicesScreen> {
     } catch (e) {
       _logger.e('Error al conectar: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al conectar: $e')),
+        // Cerrar el diálogo de progreso si está abierto
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
+        
+        MessageUtils.showErrorMessage(
+          context,
+          'Error al conectar: $e'
         );
       }
     }

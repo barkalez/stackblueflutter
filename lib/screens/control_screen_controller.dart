@@ -5,6 +5,15 @@ import 'package:logger/logger.dart';
 import 'package:stackblue/models/profile.dart';
 import '../bluetooth/bluetooth_service.dart';
 
+/// Enumeración para identificar el tipo de operación
+enum CommandOperation {
+  sendSliderPosition,
+  sendContinuousMovement,
+  stopMovement,
+  homingCommand,
+  genericCommand
+}
+
 class ControlScreenController extends ChangeNotifier {
   final BluetoothService bluetoothService;
   final Logger _logger = Logger();
@@ -87,9 +96,47 @@ class ControlScreenController extends ChangeNotifier {
     // No necesitamos notifyListeners aquí, BluetoothService ya lo hace
   }
 
+  /// Método centralizado para manejar errores en las operaciones
+  void _handleError(Object error, CommandOperation operation) {
+    String operationName;
+    
+    switch (operation) {
+      case CommandOperation.sendSliderPosition:
+        operationName = 'al enviar posición';
+        break;
+      case CommandOperation.sendContinuousMovement:
+        operationName = 'al enviar comando de movimiento continuo';
+        break;
+      case CommandOperation.stopMovement:
+        operationName = 'al detener movimiento';
+        break;
+      case CommandOperation.homingCommand:
+        operationName = 'en comando de homing';
+        break;
+      case CommandOperation.genericCommand:
+      operationName = 'al enviar comando';
+        break;
+    }
+    
+    final errorMessage = 'Error $operationName: $error';
+    _logger.e(errorMessage);
+    
+    // Asegurar que el estado se restablezca en caso de error
+    _isSendingCommand = false;
+    notifyListeners();
+    
+    // Propagar el error para su manejo en la UI
+    throw Exception(errorMessage);
+  }
+
   Future<void> sendSliderPosition(double position) async {
     final command = "G1 X${position.round()} F$currentSpeed A$currentAcceleration\n";
-    await _sendCommand(command, 'Enviado comando desde slider: $command');
+    
+    try {
+      await _sendCommand(command, 'Enviado comando desde slider: $command');
+    } catch (e) {
+      _handleError(e, CommandOperation.sendSliderPosition);
+    }
   }
 
   // Modificado: No debe bloquear la UI mientras el motor se mueve continuamente
@@ -108,10 +155,7 @@ class ControlScreenController extends ChangeNotifier {
       await bluetoothService.sendCommand(command);
       _logger.i('Enviado comando de movimiento continuo: $command');
     } catch (e) {
-      _logger.e('Error al enviar comando de movimiento continuo: $e');
-      _isSendingCommand = false;
-      notifyListeners();
-      rethrow;
+      _handleError(e, CommandOperation.sendContinuousMovement);
     }
     // Mantener _isSendingCommand en true durante el movimiento continuo
   }
@@ -123,8 +167,7 @@ class ControlScreenController extends ChangeNotifier {
       await bluetoothService.sendCommand(command);
       _logger.i('Enviado comando para detener movimiento: $command');
     } catch (e) {
-      _logger.e('Error al enviar comando para detener: $e');
-      rethrow;
+      _handleError(e, CommandOperation.stopMovement);
     } finally {
       _isSendingCommand = false;
       notifyListeners();
@@ -133,7 +176,12 @@ class ControlScreenController extends ChangeNotifier {
 
   Future<void> sendHomingCommand() async {
     const command = "G28\n";
-    await _sendCommand(command, 'Enviado comando de homing: $command');
+    
+    try {
+      await _sendCommand(command, 'Enviado comando de homing: $command');
+    } catch (e) {
+      _handleError(e, CommandOperation.homingCommand);
+    }
   }
 
   Future<void> _sendCommand(String command, String logMessage) async {
@@ -145,8 +193,7 @@ class ControlScreenController extends ChangeNotifier {
       await bluetoothService.sendCommand(command);
       _logger.i(logMessage);
     } catch (e) {
-      _logger.e('Error al enviar comando: $e');
-      rethrow;
+      _handleError(e, CommandOperation.genericCommand);
     } finally {
       _isSendingCommand = false;
       notifyListeners();
